@@ -22,25 +22,33 @@ while (true)
     var choice = Console.ReadLine();
     Console.WriteLine();
 
-    if (choice == "1")
-    {
-        await CreateRequest();
-    }
-    else if (choice == "2")
-    {
-        await ProcessRequests();
-    }
-    else if (choice == "3")
-    {
-        await ShowCount();
-    }
-    else if (choice == "0")
+    if (choice == "0")
     {
         break;
     }
-    else
+
+    try
     {
-        Console.WriteLine("Unknown command.");
+        if (choice == "1")
+        {
+            await CreateRequest();
+        }
+        else if (choice == "2")
+        {
+            await ProcessRequests();
+        }
+        else if (choice == "3")
+        {
+            await ShowCount();
+        }
+        else
+        {
+            Console.WriteLine("Unknown command.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Error: " + ex.Message);
     }
 }
 
@@ -48,7 +56,8 @@ async Task CreateRequest()
 {
     var request = new SupportRequest();
 
-    request.Id = Random.Shared.Next(1000, 10000);
+    // guid 
+    request.Id = Guid.NewGuid();
 
     Console.Write("User name: ");
     request.UserName = Console.ReadLine() ?? "";
@@ -75,15 +84,14 @@ async Task CreateRequest()
         request.Priority = Priority.Low;
     }
 
-    // час створення
     request.CreatedAt = DateTime.UtcNow;
 
-    // в json і в чергу
+    // в json
     var json = JsonSerializer.Serialize(request);
 
     await sqs.SendMessageAsync(queueUrl, json);
 
-    Console.WriteLine($"Request #{request.Id} added to queue.");
+    Console.WriteLine($"Request {request.Id} added to queue.");
 }
 
 async Task ProcessRequests()
@@ -108,10 +116,11 @@ async Task ProcessRequests()
         foreach (var message in response.Messages)
         {
             var request = JsonSerializer.Deserialize<SupportRequest>(message.Body)!;
-            
-            var waited = DateTime.UtcNow - request.CreatedAt;       // скільки заявка пролежала в черзі
 
-            Console.WriteLine($"Request #{request.Id}");
+            // скільки заявка пролежала в черзі
+            var waited = DateTime.UtcNow - request.CreatedAt;
+
+            Console.WriteLine($"Request {request.Id}");
 
             if (request.Priority == Priority.High)
             {
